@@ -43,6 +43,17 @@ Given the environment variables RESERVED_CONCURRENCY, `x`, and CHUNK_LIMIT, `n`,
 
 During the invocation, the lambda loads the payload for the API as received from SQS and calls the API, dumping the response to file in S3.
 
+## Handling the API limits
+With a limit of 1k instruments per request to the API, a high number of requests must be sent to the service to extract the data in a timely manner. As such it is proposed to fly in close to the API limits, observing requests to throttle down where appropriate but aiming to not receive bans as it is noted that these are awarded with increasing time. 
+
+When a single lambda handler begins, a performance counter starts. Just before the handler returns, this measurement will be read back. A realtime estimate is then calculated for required "sleep time" based on the invocation time of the handler and the concurrency defined as `L = 60/(t+s) * RESERVED_CONCURRENCY`, where `L` is the limit on the number of invocations in any given minute to the API service, t is the time measured by the perfcounter and s is the delay time to be found. There is some margin for safety here since the hot start time for the lambda is not included in that perfcounter.
+
+There are 4 delay SQS queues pertaining to a message send delay of 1 day, 1 hour, 1 minute, 1 second respectively. These lambdas all point to a single delay lambda. If the lambda receives a message with payload `{"delay": {"day": 0, "hours": 2, "minutes": 3, "seconds": 30}, "payload": {...}}` it will substract 1 from which ever queue it received the message from and then reinsert the message into any one of the queues for which there is still a non zero value, it will do this until all values are 0. When all values are 0 it will feed the historical loading queue once more with the payload to resume from.
+
+When a 418 status code is received, a ban is imposed on the IP address. The duration is attached in the response payload. An alarm will be raised at this point for monitoring purposes and the failed request payload is sent to a delay queue. 
+
+The same code logic is true for when the less serious 429 status code is received which requests a length of time to halt requests to remain inside limits.
+
 ## Live Extract
 ![Figure 2: Live Loading](img/live.png?raw=true)
 The live pipeline is designed to be constantly on while trading is in progress. For the websocket connection, having the code run on an EC2 instance is preferred. To keep up with traffic on the websocket it is proposed that this EC2 instance send the received data into a streaming system in received batches limited by size and time where it can sink to a file store. Once in the file store, the rest of the data pipeline remains unchanged from the initial historical pipeline.

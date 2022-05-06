@@ -143,7 +143,7 @@ def make_candidate_id(trade_id: int, delta: int, reverse: bool=False):
 
 def get_starting_ids(trade_id, RESERVED_CONCURRENCY, CHUNK_LIMIT, reverse=False):
     starting_ids = []
-    for i in range(RESERVED_CONCURRENCY + 1):
+    for i in range(1, RESERVED_CONCURRENCY + 1):
         if (candidate_id := make_candidate_id(trade_id, delta, reverse)) > 0:
                 starting_ids.append(candidate_id)
 

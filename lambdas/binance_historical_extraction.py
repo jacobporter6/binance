@@ -219,13 +219,12 @@ def send_rate_throttle_message(message: dict):
 
 
 def get_delay_config(retry_seconds):
-    # doing a bit of guessing around what this response looks like but enough to get the picture
     unix_datetime = datetime.fromtimestamp(retry_seconds)
 
     delay_config = {
                 "day": unix_datetime.day - 1,
                 "hour": unix_datetime.hour - 1,
-                "minute": unix_datetime.minute - 1,
+                "minute": unix_datetime.minute,
                 "second": unix_datetime.second
             }
 

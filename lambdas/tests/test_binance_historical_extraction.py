@@ -71,3 +71,18 @@ class TestBinanceHistoricalExtraction(unittest.TestCase):
             self.assertEqual(delay_seconds, 10)
 
         return
+
+    def test_get_delay_config(self):
+        with self.subTest("10 seconds"):
+            delay_config = get_delay_config(10)
+            self.assertEqual(delay_config, {"day": 0, "hour": 0, "minute": 0, "second": 10})
+
+        with self.subTest("100 seconds"):
+            delay_config = get_delay_config(100)
+            self.assertEqual(delay_config, {"day": 0, "hour": 0, "minute": 1, "second": 40})
+
+        with self.subTest("90100 seconds"):
+            delay_config = get_delay_config(90100)
+            self.assertEqual(delay_config, {"day": 1, "hour": 1, "minute": 1, "second": 40})
+
+        return

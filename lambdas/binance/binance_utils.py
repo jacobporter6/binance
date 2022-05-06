@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import itertools
 import typing
 #
-from binance.binance_api import BinanceQueryAPI
+from binance.binance_api import BinanceQueryAPI, get_latest_trade_id, get_first_trade_id
 
 def get_date(payload: dict):
     time_ms = payload['time']
@@ -58,7 +58,7 @@ class TradeIDFinder:
 
         return trade_id_resp
 
-    def get_trade_id_for_date(self, bounds: dict) -> dict:
+    def get_trade_id_for_bounds(self, bounds: dict) -> dict:
         estimated_id = self.estimate_id(bounds)
         estimated_id_payload = self.retrieve_trade_id(estimated_id)
         
@@ -67,10 +67,19 @@ class TradeIDFinder:
         estimated_id_date = get_date(estimated_id_payload)
         if estimated_id_date > self.start_date:
             new_bounds = {lower_id: bounds['lower_id'], estimated_id: estimated_id_date}
-            return self.get_trade_id_for_date(new_bounds)
+            return self.get_trade_id_for_bounds(new_bounds)
 
         elif estimated_id_date < self.start_date:
             new_bounds = {estimated_id: estimated_id_date, upper_id: bounds['upper_id']}
-            return self.get_trade_id_for_date(new_bounds) 
+            return self.get_trade_id_for_bounds(new_bounds) 
 
         return estimated_id
+
+    def get_trade_id_for_date(self) -> dict:
+        latest_trade_payload = get_latest_trade_id(symbol)
+        first_trade_payload = get_first_trade_id(symbol)
+
+        bounds = self.make_bounds(first_trade_payload, last_trade_payload)
+        trade_id = self.get_trade_id_for_bounds(bounds)
+
+        return trade_id

@@ -15,6 +15,23 @@ def url_builder(base, api_endpoint, parameters: dict):
 
     return f"{base}{api_endpoint}?{encoded_parameters}"
 
+
+def get_latest_trade_id(symbol) -> dict:
+    binance_query_api = BinanceQueryAPI()
+
+    _, last_trade = binance_query_api.recent_trades_list(symbol, limit=1)
+
+    return last_trade
+
+
+def get_first_trade_id(symbol) -> dict:
+    binance_query_api = BinanceQueryAPI()
+
+    _, first_trade = binance_query_api.old_trade_lookup(symbol, limit=1)
+
+    return first_trade
+
+
 def read_json(response) -> dict:
     response_body = response.read()
     
@@ -31,6 +48,15 @@ class BinanceQueryAPI:
         url = BASE_ENDPOINT + api_endpoint
 
         response = request.urlopen(url)
+
+        return read_json(response)
+
+    def recent_trades_list(self, symbol, limit: int=500):
+        api_endpoint = '/api/v3/trades'
+
+        parameters = {"symbol": symbol, "limit": limit}
+
+        url = url_builder(BASE_ENDPOINT, api_endpoint, parameters)
 
         return read_json(response)
 

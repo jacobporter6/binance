@@ -2,7 +2,7 @@
 from datetime import datetime
 import json
 #
-from binance import TradeIDFinder
+from binance import TradeIDFinder, get_latest_trade_id, get_first_trade_id
 
 CHUNK_LIMIT = 1e3
 DATEFORMAT = "%Y-%m-%d"
@@ -83,7 +83,7 @@ def send_sqs_message(queue_name: str, message: dict):
 
 
 def handle_reverse_load(symbol: str, start_date: str = ''):
-    latest_trade_id = get_latest_trade_id(symbol)
+    latest_trade_id = get_latest_trade_id(symbol)['id']
 
     config = make_config(start_date, reverse=True)
 
@@ -100,8 +100,9 @@ def handle_reverse_load(symbol: str, start_date: str = ''):
 
 def handle_from_date(symbol: str, start_date: str, end_date: str = ''):
     start_date = parse_date(start_date)
+
     trade_id_finder = TradeIDFinder(symbol, start_date)
-    trade_id = trade_id_finder.get_trade_id_for_date(start_date)
+    trade_id = trade_id_finder.get_trade_id_for_date()
 
     config = make_config(start_date, end_date)
 

@@ -25,6 +25,7 @@ class TestBinanceQueryAPI(unittest.TestCase):
           }
 
 
+    @unittest.expectedFailure
     def test_connectivity_test(self):
         response = self.binance_query_api.connectivity_test()
 

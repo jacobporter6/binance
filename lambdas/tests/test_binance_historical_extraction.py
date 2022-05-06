@@ -30,3 +30,17 @@ class TestBinanceHistoricalExtraction(unittest.TestCase):
             self.assertEqual(configuration_6, make_config(start_date="2020-01-01"))
 
         return
+
+    def test_get_starting_ids(self):
+        trade_id = 12
+        reserved_concurrency = 4
+        chunk_limit = 4
+
+        unfiltered_candidates = [8, 4, 0, -4]
+        filtered_candidates = [8, 4, 0]
+
+        with self.subTest("The candidates are filtered"):
+            starting_ids = get_starting_ids(trade_id, reserved_concurrency, chunk_limit, reverse=True)
+            self.assertEqual(filtered_candidates, starting_ids)
+
+        return

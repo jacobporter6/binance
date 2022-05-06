@@ -141,10 +141,11 @@ def make_candidate_id(trade_id: int, delta: int, reverse: bool=False):
     return candidate_id
 
 
-def get_starting_ids(trade_id, RESERVED_CONCURRENCY, CHUNK_LIMIT, reverse=False):
+def get_starting_ids(trade_id, concurrency, chunk_size, reverse=False):
     starting_ids = []
-    for i in range(1, RESERVED_CONCURRENCY + 1):
-        if (candidate_id := make_candidate_id(trade_id, delta, reverse)) > 0:
+    for i in range(1, concurrency + 1):
+        delta = i*chunk_size
+        if (candidate_id := make_candidate_id(trade_id, delta, reverse)) >= 0:
                 starting_ids.append(candidate_id)
 
     return starting_ids

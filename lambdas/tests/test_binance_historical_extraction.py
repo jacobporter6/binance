@@ -44,3 +44,30 @@ class TestBinanceHistoricalExtraction(unittest.TestCase):
             self.assertEqual(filtered_candidates, starting_ids)
 
         return
+
+    def test_calculate_delay_seconds(self):
+        with self.subTest("round 8.18 up"):
+            reserved_concurrency = 7 # running concurrently
+            rate_limit = 11 # invocations / minute 
+            runtime = 30 # each lambda runs twice / minute
+            delay_seconds = calculate_delay_seconds(runtime, reserved_concurrency, rate_limit)
+
+            self.assertEqual(delay_seconds, 9)
+
+        with self.subTest("negative to 0"):
+            reserved_concurrency = 2
+            rate_limit = 10
+            runtime = 15
+            delay_seconds = calculate_delay_seconds(runtime, reserved_concurrency, rate_limit)
+
+            self.assertEqual(delay_seconds, 0)
+
+        with self.subTest("integers are not rounded up"):
+            reserved_concurrency = 5
+            rate_limit = 10
+            runtime = 20
+
+            delay_seconds = calculate_delay_seconds(runtime, reserved_concurrency, rate_limit)
+            self.assertEqual(delay_seconds, 10)
+
+        return

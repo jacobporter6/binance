@@ -1,6 +1,7 @@
 # ./lambdas/binance_historical_extraction.py
 from datetime import datetime
 import json
+import math
 import time
 #
 from binance import TradeIDFinder, get_latest_trade_id, get_first_trade_id
@@ -168,7 +169,8 @@ def handle_api_call(config: dict):
             message = {'config': config, 'type': 'api_call'}
             end = perf_counter()
 
-            delay_seconds = calculate_delay_seconds(start, end)
+            runtime = end - start
+            delay_seconds = calculate_delay_seconds(runtime, RESERVED_CONCURRENCY, RATE_LIMIT)
 
             if delay_seconds:
                 delay_config = get_delay_config(delay_seconds)
@@ -180,10 +182,8 @@ def handle_api_call(config: dict):
     return
 
 
-def calculate_delay_seconds(start: int, end: int):
-    runtime = end - start
-
-    delay_seconds = ((60 * RESERVED_CONCURRENCY)/RATE_LIMIT) - runtime
+def calculate_delay_seconds(runtime: int, reserved_concurrency: int, rate_limit: int) -> int:
+    delay_seconds = math.ceil(((60 * reserved_concurrency)/rate_limit) - runtime)
 
     if delay_seconds <= 0:
         delay_seconds = 0

@@ -44,3 +44,5 @@ class BinanceQueryAPI:
         url = url_builder(BASE_ENDPOINT, api_endpoint, parameters)
 
         response = request.urlopen(url)
+
+        return response.getcode(), read_json(response)

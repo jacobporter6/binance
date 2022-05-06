@@ -1,6 +1,7 @@
 # ./lambdas/binance/binance_utils.py
 from datetime import datetime, timedelta
 import itertools
+import typing
 #
 from binance.binance_api import BinanceQueryAPI
 
@@ -17,9 +18,12 @@ def get_trade_id(payload: dict):
 
 
 class TradeIDFinder:
-    def __init__(self, symbol, start_date: datetime):
+    def __init__(self, symbol, start_date: typing.Optional[datetime]=None):
         self.symbol = symbol
-        self.start_date = start_date - timedelta(days=1)
+        if start_date:
+            self.start_date = start_date - timedelta(days=1)
+        else:
+            self.start_date = None
         self.query_api = BinanceQueryAPI()
 
         return
@@ -47,7 +51,10 @@ class TradeIDFinder:
         return round(first_id + ((last_id - first_id)*fraction))
 
     def retrieve_trade_id(self, trade_id) -> dict:
-        trade_id_resp = self.query_api.old_trade_lookup(self.symbol, limit=1, from_id=trade_id)
+        status_code, trade_id_resp = self.query_api.old_trade_lookup(self.symbol, limit=1, from_id=trade_id)
+
+        if status_code in [418, 429]:
+            raise Exception("Cannot run pipeline right now as limit on API reached")
 
         return trade_id_resp
 

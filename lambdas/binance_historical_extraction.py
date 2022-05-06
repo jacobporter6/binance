@@ -88,14 +88,7 @@ def handle_reverse_load(symbol: str, start_date: str = ''):
     latest_trade_id = get_latest_trade_id(symbol)['id']
 
     config = make_config(start_date, reverse=True)
-
-    starting_ids = get_starting_ids(latest_trade_id, RESERVED_CONCURRENCY, CHUNK_LIMIT, reverse=True)
-    for id_ in starting_ids:
-        payload = create_payload(symbol, id_)
-        config['payload'] = payload
-
-        message = {"config": config, "type": "api_call"}
-        send_sqs_message(SQS_QUEUE_NAME_EXTRACTION, message)
+    orchestration_handler_generic(latest_trade_id, symbol, config)
 
     return
 
@@ -107,14 +100,7 @@ def handle_from_date(symbol: str, start_date: str, end_date: str = ''):
     trade_id = trade_id_finder.get_trade_id_for_date()
 
     config = make_config(start_date, end_date)
-
-    starting_ids = get_starting_ids(trade_id, RESERVED_CONCURRENCY, CHUNK_LIMIT)
-    for id_ in starting_ids:
-        payload = create_payload(symbol, id_)
-        config['payload'] = payload
-
-        message = {"config": config, "type": "api_call"}
-        send_sqs_message(SQS_QUEUE_NAME_EXTRACTION, message)
+    orchestration_handler_generic(trade_id, symbol, config) 
 
     return
 
@@ -123,16 +109,20 @@ def handle_from_start(symbol, end_date: str = ''):
     trade_id = 0 # assumed true
 
     config = make_config(end_date)
+    orchestration_handler_generic(trade_id, symbol, config)
 
-    starting_ids = get_starting_ids(trade_id, RESERVED_CONCURRENCY, CHUNK_LIMIT)
+    return
+
+
+def orchestration_handler_generic(trade_id, symbol, config):
+    reverse = config['reverse']
+    starting_ids = get_starting_ids(trade_id, RESERVED_CONCURRENCY, CHUNK_LIMIT, reverse)
     for id_ in starting_ids:
         payload = create_payload(symbol, id_)
         config['payload'] = payload
 
         message = {"config": config, "type": "api_call"}
         send_sqs_message(SQS_QUEUE_NAME_EXTRACTION, message)
-
-    return
 
 
 def make_candidate_id(trade_id: int, delta: int, reverse: bool=False):

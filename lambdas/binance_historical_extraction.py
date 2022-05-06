@@ -1,11 +1,13 @@
 # ./lambdas/binance_historical_extraction.py
 from datetime import datetime
 import json
+import time
 #
 from binance import TradeIDFinder, get_latest_trade_id, get_first_trade_id
 
 CHUNK_LIMIT = 1e3
 DATEFORMAT = "%Y-%m-%d"
+RATE_LIMIT: int = 12e3
 RESERVED_CONCURRENCY = 4
 SQS_QUEUE_NAME_EXTRACTION = ''
 SQS_QUEUE_NAME_DELAY_DAY = ''
@@ -93,7 +95,7 @@ def handle_reverse_load(symbol: str, start_date: str = ''):
         config['payload'] = payload
 
         message = {"config": config, "type": "api_call"}
-        send_sqs_message(message)
+        send_sqs_message(SQS_QUEUE_NAME_EXTRACTION, message)
 
     return
 
@@ -128,7 +130,7 @@ def handle_from_start(symbol, end_date: str = ''):
         config['payload'] = payload
 
         message = {"config": config, "type": "api_call"}
-        send_sqs_message(message)
+        send_sqs_message(SQS_QUEUE_NAME_EXTRACTION, message)
 
     return
 
@@ -153,6 +155,7 @@ def get_starting_ids(trade_id, concurrency, chunk_size, reverse=False):
 
 
 def handle_api_call(config: dict):
+    start = time.perf_counter()
     payload = config['payload']
 
     binance_query_api = BinanceQueryAPI()
@@ -173,9 +176,29 @@ def handle_api_call(config: dict):
         if (len(res) == CHUNK_LIMIT) and (next_trade_id >= 0):
             config['payload']['fromId'] = next_trade_id
             message = {'config': config, 'type': 'api_call'}
-            send_sqs_message(message)
+            end = perf_counter()
+
+            delay_seconds = calculate_delay_seconds(start, end)
+
+            if delay_seconds:
+                delay_config = get_delay_config(delay_seconds)
+                message = {"status_code": status_code, "delay_config": delay_config, "config": config}
+                send_rate_throttle_message(message)
+            else:
+                send_sqs_message(SQS_QUEUE_NAME_EXTRACTION, message)
 
     return
+
+
+def calculate_delay_seconds(start: int, end: int):
+    runtime = end - start
+
+    delay_seconds = ((60 * RESERVED_CONCURRENCY)/RATE_LIMIT) - runtime
+
+    if delay_seconds <= 0:
+        delay_seconds = 0
+
+    return delay_seconds
 
 
 def handle_rate_limit(status_code: int, api_response: dict, config: dict):
@@ -185,9 +208,15 @@ def handle_rate_limit(status_code: int, api_response: dict, config: dict):
     the delay queue until there are none left. When penalty time has expired, that delay lambda will 
     feed this lambda once again with the failed query config.
     """
-    delay_config = get_delay_config(api_response)
+    delay_config = get_delay_config(api_response['retry_after'])
     message = {"status_code": status_code, "delay_config": delay_config, "config": config}
+    send_rate_throttle_message(message)
 
+    return
+
+
+def send_rate_throttle_message(message: dict):
+    delay_config = message['delay_config']
     penalty_types = ['day', 'hour', 'minute', 'second']
     sqs_queue_names = map(lambda x: f'SQS_QUEUE_NAME_DELAY_{x.upper()}', penalty_types)
     penalties = map(lambda x: delay_config[x], penalty_types)
@@ -199,9 +228,8 @@ def handle_rate_limit(status_code: int, api_response: dict, config: dict):
     return
 
 
-def get_delay_config(api_response: dict):
+def get_delay_config(retry_seconds):
     # doing a bit of guessing around what this response looks like but enough to get the picture
-    retry_seconds = api_response['retry_after']
     unix_datetime = datetime.fromtimestamp(retry_seconds)
 
     delay_config = {

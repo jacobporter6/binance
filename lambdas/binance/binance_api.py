@@ -1,15 +1,16 @@
 # ./lambdas/binance/binance_api.py
 import json
-from urllib import request
+from urllib import parse, request
 
 BASE_ENDPOINT = 'https://api.binance.com'
 
 def encode_params(parameters: dict) -> str:
-    
-    return request.parse.urlencode(parameters)
+
+    return parse.urlencode(parameters)
+
 
 def url_builder(base, api_endpoint, parameters: dict):
-    endcoded_parameters = encode_params(parameters)
+    encoded_parameters = encode_params(parameters)
     if not api_endpoint.startswith('/'):
         api_endpoint = '/' + api_endpoint
 
@@ -34,7 +35,7 @@ def get_first_trade_id(symbol) -> dict:
 
 def read_json(response) -> dict:
     response_body = response.read()
-    
+
     return json.loads(response_body.decode("utf-8"))
 
 
@@ -57,6 +58,7 @@ class BinanceQueryAPI:
         parameters = {"symbol": symbol, "limit": limit}
 
         url = url_builder(BASE_ENDPOINT, api_endpoint, parameters)
+        response = request.urlopen(url)
 
         return read_json(response)
 
@@ -68,7 +70,6 @@ class BinanceQueryAPI:
             parameters["fromId"] = from_id
 
         url = url_builder(BASE_ENDPOINT, api_endpoint, parameters)
-
         response = request.urlopen(url)
 
         return response.getcode(), read_json(response)

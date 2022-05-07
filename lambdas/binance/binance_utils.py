@@ -35,18 +35,15 @@ class TradeIDFinder:
 
         return bounds
 
-    def estimate_trade_id(self, bounds: dict):
-        fraction = self.get_fraction_from_days(self, **bounds.keys())
-
-        return self.estimate_id(first_id, last_id, fraction)
-
     def get_fraction_from_days(self, first_date, last_date):
         days_before = (self.start_date - first_date).days
         total_days = (last_date - first_date).days
 
         return days_before/total_days
 
-    def estimate_id(self, first_id, last_id, fraction):
+    def estimate_id(self, bounds):
+        first_id, last_id = bounds.keys()
+        fraction = self.get_fraction_from_days(*bounds.values())
 
         return round(first_id + ((last_id - first_id)*fraction))
 
@@ -61,9 +58,9 @@ class TradeIDFinder:
     def get_trade_id_for_bounds(self, bounds: dict) -> dict:
         estimated_id = self.estimate_id(bounds)
         estimated_id_payload = self.retrieve_trade_id(estimated_id)
-        
+
         lower_id, upper_id = bounds.keys()
-        
+
         estimated_id_date = get_date(estimated_id_payload)
         if estimated_id_date > self.start_date:
             new_bounds = {lower_id: bounds['lower_id'], estimated_id: estimated_id_date}
@@ -71,13 +68,13 @@ class TradeIDFinder:
 
         elif estimated_id_date < self.start_date:
             new_bounds = {estimated_id: estimated_id_date, upper_id: bounds['upper_id']}
-            return self.get_trade_id_for_bounds(new_bounds) 
+            return self.get_trade_id_for_bounds(new_bounds)
 
         return estimated_id
 
     def get_trade_id_for_date(self) -> dict:
-        latest_trade_payload = get_latest_trade_id(symbol)
-        first_trade_payload = get_first_trade_id(symbol)
+        last_trade_payload = get_latest_trade_id(self.symbol)
+        first_trade_payload = get_first_trade_id(self.symbol)
 
         bounds = self.make_bounds(first_trade_payload, last_trade_payload)
         trade_id = self.get_trade_id_for_bounds(bounds)

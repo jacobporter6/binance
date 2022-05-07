@@ -4,6 +4,7 @@ import json
 import math
 import time
 #
+from binance import BinanceQueryAPI
 from binance import TradeIDFinder, get_latest_trade_id, get_first_trade_id
 
 CHUNK_LIMIT = 1e3
@@ -30,7 +31,7 @@ def parse_event(payload: dict):
         handle_api_call(payload['config'])
     else:
         raise Exception("lambda only accepts api_call or orchestration")
-    
+
     return
 
 
@@ -59,7 +60,7 @@ def handle_orchestration(config: dict):
 
 
 def make_config(start_date: str = '', end_date: str = '', reverse: bool = False):
-    config = dict()
+    config: dict = {}
     if start_date:
         config['start_date'] = start_date
     if end_date:
@@ -101,7 +102,7 @@ def handle_from_date(symbol: str, start_date: str, end_date: str = ''):
     trade_id = trade_id_finder.get_trade_id_for_date()
 
     config = make_config(start_date, end_date)
-    orchestration_handler_generic(trade_id, symbol, config) 
+    orchestration_handler_generic(trade_id, symbol, config)
 
     return
 
@@ -140,7 +141,7 @@ def get_starting_ids(trade_id, concurrency, chunk_size, reverse=False):
     for i in range(1, concurrency + 1):
         delta = i*chunk_size
         if (candidate_id := make_candidate_id(trade_id, delta, reverse)) >= 0:
-                starting_ids.append(candidate_id)
+            starting_ids.append(candidate_id)
 
     return starting_ids
 
@@ -151,7 +152,9 @@ def handle_api_call(config: dict):
 
     binance_query_api = BinanceQueryAPI()
 
-    status_code, res = binance_query_api.old_trade_lookup(payload['symbol'], CHUNK_LIMIT, payload['fromId'])
+    status_code, res = binance_query_api.old_trade_lookup(
+                payload['symbol'], CHUNK_LIMIT, payload['fromId']
+            )
 
     if status_code in [418, 429]:
         handle_rate_limit(status_code, res, config)
@@ -167,14 +170,18 @@ def handle_api_call(config: dict):
         if (len(res) == CHUNK_LIMIT) and (next_trade_id >= 0):
             config['payload']['fromId'] = next_trade_id
             message = {'config': config, 'type': 'api_call'}
-            end = perf_counter()
+            end = time.perf_counter()
 
             runtime = end - start
             delay_seconds = calculate_delay_seconds(runtime, RESERVED_CONCURRENCY, RATE_LIMIT)
 
             if delay_seconds:
                 delay_config = get_delay_config(delay_seconds)
-                message = {"status_code": status_code, "delay_config": delay_config, "config": config}
+                message = {
+                            "status_code": status_code,
+                            "delay_config": delay_config,
+                            "config": config
+                        }
                 send_rate_throttle_message(message)
             else:
                 send_sqs_message(SQS_QUEUE_NAME_EXTRACTION, message)
@@ -184,9 +191,7 @@ def handle_api_call(config: dict):
 
 def calculate_delay_seconds(runtime: int, reserved_concurrency: int, rate_limit: int) -> int:
     delay_seconds = math.ceil(((60 * reserved_concurrency)/rate_limit) - runtime)
-
-    if delay_seconds <= 0:
-        delay_seconds = 0
+    delay_seconds = max(0, delay_seconds)
 
     return delay_seconds
 
@@ -195,7 +200,7 @@ def handle_rate_limit(status_code: int, api_response: dict, config: dict):
     """
     when asked to wait x seconds before retrying API for throttling or ban, send to the delay queue
     which will feed a separate delay lambda. The delay lambda will decrement the penalties and refeed
-    the delay queue until there are none left. When penalty time has expired, that delay lambda will 
+    the delay queue until there are none left. When penalty time has expired, that delay lambda will
     feed this lambda once again with the failed query config.
     """
     delay_config = get_delay_config(api_response['retry_after'])
@@ -232,7 +237,7 @@ def get_delay_config(retry_seconds):
 
 def handle_record(record: dict):
     payload = json.loads(record['body'])
-    parse_event(record)
+    parse_event(payload)
 
     return
 

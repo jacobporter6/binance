@@ -142,6 +142,10 @@ def get_starting_ids(trade_id, concurrency, chunk_size, reverse=False):
         delta = i*chunk_size
         if (candidate_id := make_candidate_id(trade_id, delta, reverse)) >= 0:
             starting_ids.append(candidate_id)
+        elif abs(candidate_id) < chunk_size:
+            starting_ids.append(0)
+        else:
+            break
 
     return starting_ids
 

@@ -32,23 +32,28 @@ class TestBinanceHistoricalExtraction(unittest.TestCase):
         return
 
     def test_get_starting_ids(self):
-        trade_id = 12
         reserved_concurrency = 4
         chunk_limit = 4
-
-        unfiltered_candidates = [8, 4, 0, -4]
-        filtered_candidates = [8, 4, 0]
-
         with self.subTest("The candidates are filtered"):
-            starting_ids = get_starting_ids(trade_id, reserved_concurrency, chunk_limit, reverse=True)
-            self.assertEqual(filtered_candidates, starting_ids)
+            trade_id = 12
+            candidates = [8, 4, 0]
+            starting_ids = get_starting_ids(trade_id, reserved_concurrency,
+                chunk_limit, reverse=True)
+            self.assertEqual(candidates, starting_ids)
+
+        with self.subTest():
+            trade_id = 11
+            candidates = [7, 3, 0]
+            starting_ids = get_starting_ids(trade_id, reserved_concurrency,
+                chunk_limit, reverse=True)
+            self.assertEqual(candidates, starting_ids)
 
         return
 
     def test_calculate_delay_seconds(self):
         with self.subTest("round 8.18 up"):
             reserved_concurrency = 7 # running concurrently
-            rate_limit = 11 # invocations / minute 
+            rate_limit = 11 # invocations / minute
             runtime = 30 # each lambda runs twice / minute
             delay_seconds = calculate_delay_seconds(runtime, reserved_concurrency, rate_limit)
 
